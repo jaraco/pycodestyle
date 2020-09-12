@@ -2157,7 +2157,8 @@ class Checker(object):
             # if the file does not end with a newline, the NEWLINE
             # token is inserted by the parser, but it does not contain
             # the previous physical line in `token[4]`
-            self.check_physical(token[4] or last[4])
+            prev_physical = last[4] if last is not None else ''
+            self.check_physical(token[4] or prev_physical)
         elif token[0] == tokenize.STRING and '\n' in token[1]:
             # Less obviously, a string that contains newlines is a
             # multiline string, either triple-quoted or with internal

@@ -2137,10 +2137,11 @@ class Checker(object):
         if self._io_error:
             self.report_error(1, 0, 'E902 %s' % self._io_error, readlines)
         tokengen = tokenize.generate_tokens(self.readline)
+        limited = itertools.takewhile(
+            lambda token: token[2][0] <= self.total_lines,
+            tokengen)
         try:
-            for last, token in iter_last(tokengen):
-                if token[2][0] > self.total_lines:
-                    return
+            for last, token in iter_last(limited):
                 self.noqa = token[4] and noqa(token[4])
                 self.maybe_check_physical(token, last)
                 yield token

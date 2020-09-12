@@ -58,6 +58,7 @@ import time
 import tokenize
 import warnings
 import bisect
+import itertools
 
 try:
     from functools import lru_cache
@@ -193,6 +194,18 @@ def register_check(check, codes=None):
         if _get_parameters(check.__init__)[:2] == ['self', 'tree']:
             _add_check(check, 'tree', codes, None)
     return check
+
+
+def iter_last(items, fill=None):
+    """
+    Iterate over items, also yielding the last item (fill to start).
+    >>> list(iter_last(range(3)))
+    [(None, 0), (0, 1), (1, 2)]
+    """
+    items, lasts = itertools.tee(items)
+    lasts = itertools.chain((fill,), lasts)
+    izip = zip if sys.version_info > (3,) else itertools.izip
+    return izip(lasts, items)
 
 
 ########################################################################
@@ -2125,18 +2138,16 @@ class Checker(object):
             self.report_error(1, 0, 'E902 %s' % self._io_error, readlines)
         tokengen = tokenize.generate_tokens(self.readline)
         try:
-            prev_physical = ''
-            for token in tokengen:
+            for last, token in iter_last(tokengen):
                 if token[2][0] > self.total_lines:
                     return
                 self.noqa = token[4] and noqa(token[4])
-                self.maybe_check_physical(token, prev_physical)
+                self.maybe_check_physical(token, last)
                 yield token
-                prev_physical = token[4]
         except (SyntaxError, tokenize.TokenError):
             self.report_invalid_syntax()
 
-    def maybe_check_physical(self, token, prev_physical):
+    def maybe_check_physical(self, token, last):
         """If appropriate for token, check current physical line(s)."""
         # Called after every token, but act only on end of line.
 
@@ -2145,10 +2156,7 @@ class Checker(object):
             # if the file does not end with a newline, the NEWLINE
             # token is inserted by the parser, but it does not contain
             # the previous physical line in `token[4]`
-            if token[4] == '':
-                self.check_physical(prev_physical)
-            else:
-                self.check_physical(token[4])
+            self.check_physical(token[4] or last[4])
         elif token[0] == tokenize.STRING and '\n' in token[1]:
             # Less obviously, a string that contains newlines is a
             # multiline string, either triple-quoted or with internal
